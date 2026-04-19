@@ -7,12 +7,18 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
-from crustdata import Crustdata
+from crustdata import Crustdata, CrustdataUnavailable
 from db import upsert_recruiter, verify_recruiter, search_students, get_db
 from llm import parse_find_query
 from security import SessionStore, message_limiter, sanitize_error
 
 logger = logging.getLogger("placemate.recruiter")
+
+_MD_ESCAPE_RE = re.compile(r'([_*\[\]()~`>#+\-=|{}.!])')
+
+
+def _esc(text: str) -> str:
+    return _MD_ESCAPE_RE.sub(r'\\\1', str(text)) if text else ""
 
 RECRUITER_STATE = SessionStore(ttl=1800)
 
@@ -104,6 +110,107 @@ async def handle_recruiter_email(update: Update, ctx: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(sanitize_error(e))
 
 
+def _format_crustdata_person(person: dict) -> str | None:
+    if not isinstance(person, dict) or "error" in person:
+        return None
+
+    bp = person.get("basic_profile", {})
+    if not isinstance(bp, dict) or not bp.get("name"):
+        return None
+
+    name = _esc(bp.get("name", ""))
+    headline = _esc(bp.get("headline", bp.get("current_title", "")))
+
+    loc_obj = bp.get("location", {})
+    location = _esc(loc_obj.get("raw", "")) if isinstance(loc_obj, dict) else ""
+
+    exp = person.get("experience", {})
+    if not isinstance(exp, dict):
+        exp = {}
+    employment = exp.get("employment_details", {})
+    current_jobs = employment.get("current", [])
+    current_str = ""
+    company_linkedin = ""
+    if isinstance(current_jobs, list) and current_jobs:
+        job = current_jobs[0]
+        if isinstance(job, dict):
+            company = _esc(job.get("name", ""))
+            title = _esc(job.get("title", ""))
+            if company and title:
+                current_str = f"{title} at {company}"
+            elif company:
+                current_str = company
+            elif title:
+                current_str = title
+            company_linkedin = job.get("company_professional_network_profile_url", "")
+
+    edu = person.get("education", {})
+    if not isinstance(edu, dict):
+        edu = {}
+    schools = edu.get("schools", [])
+    edu_str = ""
+    if isinstance(schools, list) and schools:
+        school = schools[0]
+        if isinstance(school, dict):
+            school_name = _esc(school.get("school", ""))
+            degree = _esc(school.get("degree", ""))
+            if school_name and degree:
+                edu_str = f"{degree}, {school_name}"
+            elif school_name:
+                edu_str = school_name
+
+    lines = [f"*{name}*"]
+    if current_str:
+        lines.append(f"Current: {current_str}")
+    elif headline:
+        lines.append(headline)
+    if edu_str:
+        lines.append(f"Education: {edu_str}")
+    if location:
+        lines.append(f"Location: {location}")
+    if company_linkedin:
+        lines.append(f"[Company LinkedIn]({company_linkedin})")
+
+    return "\n".join(lines)
+
+
+async def _search_crustdata_people(parsed: dict) -> list[dict]:
+    title = parsed.get("title", "")
+    company = parsed.get("company", "")
+
+    if not title and not company:
+        skills = parsed.get("skills", [])
+        role = parsed.get("role", "")
+        if role:
+            role_titles = {
+                "sde": "Software Engineer",
+                "data": "Data Scientist",
+                "pm": "Product Manager",
+                "design": "Designer",
+            }
+            title = role_titles.get(role.lower(), role)
+        elif skills:
+            title = skills[0]
+
+    if not title and not company:
+        return []
+
+    cd = Crustdata()
+    try:
+        result = await cd.person_search(
+            title=title,
+            company_name=company,
+            limit=min(parsed.get("limit", 10), 25),
+        )
+        if isinstance(result, dict):
+            return result.get("profiles", result.get("people", result.get("results", [])))
+        if isinstance(result, list):
+            return result
+        return []
+    finally:
+        await cd.close()
+
+
 async def find(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     tg_id = update.effective_user.id
     if not message_limiter.is_allowed(tg_id):
@@ -119,7 +226,9 @@ async def find(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     query = " ".join(ctx.args) if ctx.args else ""
     if not query or len(query) > 500:
         await update.message.reply_text(
-            "Usage: `/find 10 3rd-year CS students with React + Node at tier-1 colleges`",
+            "Usage: `/find React engineers at Razorpay`\n"
+            "Or: `/find 10 Python developers`\n"
+            "Or: `/find Data Scientists with ML and Python`",
             parse_mode="Markdown",
         )
         return
@@ -127,26 +236,58 @@ async def find(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await update.message.chat.send_action("typing")
         parsed = await parse_find_query(query, user_id=tg_id)
-        matches = await search_students(parsed)
+        limit = min(parsed.get("limit", 10), 20)
+        sent = 0
 
-        if not matches:
-            await update.message.reply_text("No matching students found. Try broader criteria.")
-            return
+        try:
+            crustdata_people = await _search_crustdata_people(parsed)
+        except CrustdataUnavailable:
+            crustdata_people = []
+            logger.warning("Crustdata unavailable for find query: %s", query)
+        except Exception as e:
+            crustdata_people = []
+            logger.error("Crustdata search failed: %s", e, exc_info=True)
 
-        for m in matches[:min(parsed.get("limit", 10), 20)]:
-            skills_str = ", ".join(m.get("skills", [])[:8])
+        for person in crustdata_people:
+            if sent >= limit:
+                break
+            card = _format_crustdata_person(person)
+            if card:
+                await update.message.reply_text(
+                    card, parse_mode="Markdown",
+                    disable_web_page_preview=True,
+                )
+                sent += 1
+
+        local_matches = await search_students(parsed)
+        for m in local_matches:
+            if sent >= limit:
+                break
+            skills_str = ", ".join(_esc(s) for s in m.get("skills", [])[:8])
             mastery_str = ", ".join(
-                f"{k} {v}%" for k, v in m.get("mastery", {}).items()
+                f"{_esc(k)} {v}%" for k, v in m.get("mastery", {}).items()
             ) or "No quizzes taken yet"
             card = (
-                f"*{m.get('name', 'Student')}* — {m.get('college', 'N/A')} ({m.get('year', 'N/A')})\n"
+                f"*{_esc(m.get('name', 'Student'))}* — {_esc(m.get('college', 'N/A'))} ({_esc(m.get('year', 'N/A'))})\n"
                 f"Skills: {skills_str}\n"
-                f"Verified mastery: {mastery_str}"
+                f"Verified mastery: {mastery_str}\n"
+                "_PlaceMate verified student_"
             )
             kb = InlineKeyboardMarkup([[
                 InlineKeyboardButton("Message via PlaceMate", callback_data=f"rec:msg:{m['id']}"),
             ]])
             await update.message.reply_text(card, parse_mode="Markdown", reply_markup=kb)
+            sent += 1
+
+        if sent == 0:
+            await update.message.reply_text(
+                "No results found. Try different keywords.\n\n"
+                "Examples:\n"
+                "• `/find Software Engineers at Google`\n"
+                "• `/find React developers`\n"
+                "• `/find Data Scientists with Python`",
+                parse_mode="Markdown",
+            )
     except Exception as e:
         logger.error("Find error: %s", e)
         await update.message.reply_text(sanitize_error(e))

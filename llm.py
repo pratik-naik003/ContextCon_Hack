@@ -204,7 +204,19 @@ async def parse_find_query(query: str, user_id: int = 0) -> dict[str, Any]:
     prompt = (
         "Parse this recruiter search query into structured filters.\n"
         "Return ONLY valid JSON with these optional fields, no markdown fences:\n"
-        '{"role": "string", "skills": ["list"], "year": "string", "college": "string", "limit": number}\n\n'
+        '{"skills": ["tech skills like React, Python, AWS"], '
+        '"role": "one of: SDE, Data, PM, Design", '
+        '"title": "professional job title for search e.g. Software Engineer, Data Scientist", '
+        '"company": "company name if mentioned", '
+        '"year": "study year like 3rd or graduation year", '
+        '"college": "college name if mentioned", '
+        '"limit": 10}\n\n'
+        "Rules:\n"
+        "- skills: specific technologies only (React, Python, AWS, Docker, etc.)\n"
+        "- title: always generate a relevant job title even if not explicit in query\n"
+        "- role: map to exactly one of SDE, Data, PM, Design\n"
+        "- company: only if a specific company is named\n"
+        "- limit: default 10, max 50\n\n"
         f"Query: {safe_query}"
     )
 

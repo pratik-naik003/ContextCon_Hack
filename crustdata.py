@@ -123,7 +123,7 @@ class Crustdata:
         if company_name:
             conditions.append({
                 "field": "experience.employment_details.current.name",
-                "type": "=",
+                "type": "(.)",
                 "value": company_name,
             })
 
@@ -136,6 +136,12 @@ class Crustdata:
 
         payload = {
             "filters": filters,
+            "fields": [
+                "basic_profile",
+                "experience",
+                "education",
+                "skills",
+            ],
             "limit": min(limit, 50),
         }
 
