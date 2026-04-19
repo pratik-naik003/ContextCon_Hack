@@ -1,0 +1,46 @@
+{
+  "skill": "postgres_indexing",
+  "title": "Postgres Indexing in 3 Minutes",
+  "lesson_md": "*Why indexes?* Without them, Postgres scans every row in a table (sequential scan). With a 10M-row table, that's the difference between 5ms and 5 seconds.\n\n*B-tree (default):* Best for equality and range queries. Postgres creates one automatically on every PRIMARY KEY and UNIQUE constraint.\n\n*Hash:* Only useful for exact equality (=). Rarely better than B-tree. Don't use unless you have a specific reason.\n\n*GIN (Generalized Inverted Index):* Built for full-text search, JSONB, and array columns. If you're querying `WHERE tags @> '{python}'`, you want GIN.\n\n*BRIN (Block Range Index):* Tiny indexes for naturally ordered data (timestamps, auto-incrementing IDs). Uses 1000x less disk than B-tree.\n\n*When NOT to index:*\n- Tables under 10K rows (seq scan is fast enough)\n- Columns with low cardinality (boolean, status enum)\n- Write-heavy tables where index maintenance cost > read benefit",
+  "quiz": [
+    {
+      "q": "What's the default index type in Postgres?",
+      "options": ["B-tree", "Hash", "GIN", "BRIN"],
+      "correct": 0
+    },
+    {
+      "q": "Which index type is BEST for full-text search?",
+      "options": ["B-tree", "Hash", "GIN", "BRIN"],
+      "correct": 2
+    },
+    {
+      "q": "When should you NOT add an index?",
+      "options": [
+        "On a 50M-row table queried by date range",
+        "On a boolean column in a 1M-row table",
+        "On a foreign key used in JOINs",
+        "On a column used in WHERE clauses"
+      ],
+      "correct": 1
+    },
+    {
+      "q": "What does BRIN stand for?",
+      "options": [
+        "Binary Range Index Node",
+        "Block Range Index",
+        "B-tree Range Index",
+        "Balanced Range Index Network"
+      ],
+      "correct": 1
+    },
+    {
+      "q": "Postgres auto-creates a B-tree index on which constraint?",
+      "options": ["FOREIGN KEY", "CHECK", "PRIMARY KEY", "NOT NULL"],
+      "correct": 2
+    }
+  ],
+  "affiliate_links": [
+    {"label": "NPTEL: Database Management Systems", "url": "https://nptel.ac.in/courses/106105175"},
+    {"label": "Coursera: PostgreSQL for Everybody", "url": "https://www.coursera.org/specializations/postgresql-for-everybody"}
+  ]
+}

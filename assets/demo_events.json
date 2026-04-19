@@ -1,0 +1,35 @@
+[
+  {
+    "company_name": "Razorpay",
+    "company_id": "razorpay_001",
+    "event_type": "hiring_surge",
+    "headline": "Razorpay just opened 15 SDE roles after their Series F",
+    "match_reason": "Your Python + System Design skills match 4 of the 6 JD requirements",
+    "missing_skills": "Kafka, Redis at scale",
+    "hm_name": "Priya Sharma",
+    "hm_title": "VP Engineering",
+    "jd_skills": ["Python", "System Design", "Kafka", "Redis", "PostgreSQL", "AWS"]
+  },
+  {
+    "company_name": "Zerodha",
+    "company_id": "zerodha_002",
+    "event_type": "exec_joined",
+    "headline": "Zerodha's new CTO (ex-Google) is building a 30-person platform team",
+    "match_reason": "Your Go + distributed systems background is exactly what they're hiring for",
+    "missing_skills": "Financial domain knowledge",
+    "hm_name": "Kailash Nadh",
+    "hm_title": "CTO",
+    "jd_skills": ["Go", "Distributed Systems", "PostgreSQL", "Linux", "Performance"]
+  },
+  {
+    "company_name": "Swiggy",
+    "company_id": "swiggy_003",
+    "event_type": "funding",
+    "headline": "Swiggy raised $200M — expanding engineering team by 40%",
+    "match_reason": "Your React + Node skills match their frontend infrastructure role",
+    "missing_skills": "React Native, GraphQL",
+    "hm_name": "Rahul Jain",
+    "hm_title": "Engineering Manager",
+    "jd_skills": ["React", "Node.js", "TypeScript", "GraphQL", "React Native"]
+  }
+]

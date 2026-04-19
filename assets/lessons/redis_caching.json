@@ -1,0 +1,41 @@
+{
+  "skill": "redis_caching",
+  "title": "Redis Caching Patterns in 3 Minutes",
+  "lesson_md": "*Why Redis?* It's an in-memory data store that serves reads in <1ms. When your database query takes 200ms and you're getting 1000 req/s, Redis is the difference between crashing and cruising.\n\n*Cache-Aside (Lazy Loading):* App checks Redis first. Cache miss? Query DB, write result to Redis, return. Most common pattern. Downside: first request is always slow.\n\n*Write-Through:* Every DB write also writes to Redis. Data is always fresh. Downside: doubles write latency.\n\n*Write-Behind (Write-Back):* Write to Redis immediately, async flush to DB. Fastest writes. Downside: risk of data loss if Redis crashes before flush.\n\n*TTL Strategy:*\n- Hot data (user sessions): 30 min TTL\n- Warm data (API responses): 5 min TTL\n- Cold data (config): 24 hour TTL\n\n*Cache Invalidation* — the two hard problems in CS. Options: TTL expiry, explicit delete on write, pub/sub invalidation. Pick TTL unless you need real-time consistency.",
+  "quiz": [
+    {
+      "q": "What is the most common Redis caching pattern?",
+      "options": ["Write-Through", "Cache-Aside", "Write-Behind", "Read-Through"],
+      "correct": 1
+    },
+    {
+      "q": "Which pattern has the FASTEST write performance?",
+      "options": ["Cache-Aside", "Write-Through", "Write-Behind", "TTL-based"],
+      "correct": 2
+    },
+    {
+      "q": "What's the typical TTL for user session data?",
+      "options": ["5 seconds", "30 minutes", "24 hours", "Never expires"],
+      "correct": 1
+    },
+    {
+      "q": "What's the main downside of Cache-Aside?",
+      "options": [
+        "Data is always stale",
+        "First request is always slow (cache miss)",
+        "It doubles write latency",
+        "Risk of data loss"
+      ],
+      "correct": 1
+    },
+    {
+      "q": "Redis serves reads in approximately how long?",
+      "options": ["100ms", "10ms", "< 1ms", "1 second"],
+      "correct": 2
+    }
+  ],
+  "affiliate_links": [
+    {"label": "Redis University: Free Courses", "url": "https://university.redis.com/"},
+    {"label": "NPTEL: Distributed Systems", "url": "https://nptel.ac.in/courses/106105214"}
+  ]
+}

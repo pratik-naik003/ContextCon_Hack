@@ -1,0 +1,47 @@
+[
+  {
+    "tg_id": 100001,
+    "name": "Arjun Mehta",
+    "college": "IIT Bombay",
+    "year": "3rd",
+    "skills": ["Python", "PostgreSQL", "System Design", "Docker", "AWS"],
+    "target_roles": "sde",
+    "location": "Mumbai"
+  },
+  {
+    "tg_id": 100002,
+    "name": "Sneha Reddy",
+    "college": "BITS Pilani",
+    "year": "4th",
+    "skills": ["React", "Node.js", "TypeScript", "MongoDB", "GraphQL"],
+    "target_roles": "sde",
+    "location": "Hyderabad"
+  },
+  {
+    "tg_id": 100003,
+    "name": "Vikram Singh",
+    "college": "NIT Trichy",
+    "year": "3rd",
+    "skills": ["Java", "Spring Boot", "Kafka", "Redis", "MySQL"],
+    "target_roles": "sde",
+    "location": "Chennai"
+  },
+  {
+    "tg_id": 100004,
+    "name": "Priya Nair",
+    "college": "IIIT Hyderabad",
+    "year": "2nd",
+    "skills": ["Python", "TensorFlow", "SQL", "Pandas", "Scikit-learn"],
+    "target_roles": "data",
+    "location": "Hyderabad"
+  },
+  {
+    "tg_id": 100005,
+    "name": "Rohan Gupta",
+    "college": "DTU Delhi",
+    "year": "4th",
+    "skills": ["Go", "Kubernetes", "Docker", "Linux", "Terraform"],
+    "target_roles": "sde",
+    "location": "Delhi"
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "skill": "system_design_basics",
+  "title": "System Design Fundamentals in 3 Minutes",
+  "lesson_md": "*The Framework:* Every system design answer follows this structure: Requirements → Estimation → High-Level Design → Deep Dive → Bottlenecks.\n\n*Horizontal vs Vertical Scaling:*\n- Vertical: bigger machine (more RAM, faster CPU). Simple but has a ceiling.\n- Horizontal: more machines behind a load balancer. Complex but unlimited.\n\n*Load Balancing:* Distributes traffic across servers. Round-robin (simple), least connections (smarter), consistent hashing (for caches).\n\n*Database Sharding:* Split one big DB into many small ones. Shard by user_id, geography, or hash. Adds complexity: cross-shard queries are painful.\n\n*CAP Theorem:* You can only have 2 of 3: Consistency, Availability, Partition tolerance. In distributed systems, partitions are inevitable, so you're really choosing between CP (banking) and AP (social media).\n\n*Key Numbers to Know:*\n- 1 server: ~1000 req/s\n- Read from memory: 100ns\n- Read from SSD: 100μs (1000x slower)\n- Read from disk: 10ms (100,000x slower)\n- Network round trip (same datacenter): 500μs",
+  "quiz": [
+    {
+      "q": "In the CAP theorem, what does 'P' stand for?",
+      "options": ["Performance", "Partition tolerance", "Persistence", "Processing"],
+      "correct": 1
+    },
+    {
+      "q": "Which scaling approach has an upper ceiling?",
+      "options": ["Horizontal", "Vertical", "Both equally", "Neither"],
+      "correct": 1
+    },
+    {
+      "q": "What load balancing strategy works best with caching?",
+      "options": ["Round-robin", "Random", "Consistent hashing", "Least connections"],
+      "correct": 2
+    },
+    {
+      "q": "Reading from SSD is approximately how much slower than memory?",
+      "options": ["10x", "100x", "1000x", "Same speed"],
+      "correct": 2
+    },
+    {
+      "q": "A social media platform would typically choose which CAP trade-off?",
+      "options": ["CP (Consistency + Partition)", "AP (Availability + Partition)", "CA (Consistency + Availability)", "All three"],
+      "correct": 1
+    }
+  ],
+  "affiliate_links": [
+    {"label": "Grokking System Design Interview", "url": "https://www.designgurus.io/course/grokking-the-system-design-interview"},
+    {"label": "NPTEL: Cloud Computing", "url": "https://nptel.ac.in/courses/106105167"}
+  ]
+}
