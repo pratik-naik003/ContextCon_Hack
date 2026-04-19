@@ -41,12 +41,18 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     text = update.message.text.strip()
     if not text:
         return
+    if len(text) > 10000:
+        await update.message.reply_text("Input too long. Please keep it under 10,000 characters.")
+        return
 
     step = st["step"]
     data = st["data"]
 
     try:
         if step == "name":
+            if len(text) > 100:
+                await update.message.reply_text("Name is too long. Please use a shorter name.")
+                return
             data["name"] = text
             st["step"] = "college"
             STATE.set(tg_id, st)
@@ -102,12 +108,16 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         student_id = await upsert_student(tg_id, st["data"])
         cd = Crustdata()
         try:
-            companies = await cd.company_search(
-                headcount=["201-500", "501-1000"],
-                location=["India"],
-            )
-            profiles = companies.get("profiles", companies.get("results", []))
-            await seed_watched_companies(student_id, profiles[:50])
+            result = await cd.company_search(headcount_min=50, headcount_max=1000)
+            companies_list = result.get("companies", []) if isinstance(result, dict) else []
+            seed_data = []
+            for c in companies_list[:50]:
+                bi = c.get("basic_info", {})
+                seed_data.append({
+                    "company_id": str(bi.get("crustdata_company_id", c.get("crustdata_company_id", ""))),
+                    "company_name": bi.get("name", "Unknown"),
+                })
+            await seed_watched_companies(student_id, seed_data)
         finally:
             await cd.close()
 

@@ -75,8 +75,16 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     elif action == "q":
         if len(parts) >= 5:
             skill = parts[2]
-            idx = int(parts[3])
-            picked = int(parts[4])
+            if skill not in LESSONS:
+                return
+            try:
+                idx = int(parts[3])
+                picked = int(parts[4])
+            except ValueError:
+                return
+            quiz = LESSONS[skill]["quiz"]
+            if idx < 0 or idx >= len(quiz) or picked < 0 or picked >= len(quiz[idx]["options"]):
+                return
             await _handle_answer(q, tg_id, skill, idx, picked)
 
 

@@ -57,15 +57,16 @@ async def _fetch_hiring_manager(event: dict) -> dict:
     cd = Crustdata()
     try:
         result = await cd.person_search(
-            title=["VP Engineering", "Engineering Manager", "CTO", "Head of Engineering"],
-            company=[company_name],
+            title="VP Engineering|Engineering Manager|CTO|Head of Engineering",
+            company_name=company_name,
         )
-        profiles = result.get("profiles", result.get("results", []))
+        profiles = result.get("profiles", []) if isinstance(result, dict) else []
         if profiles:
             p = profiles[0]
+            bp = p.get("basic_profile", {})
             return {
-                "name": p.get("name", "Hiring Manager"),
-                "title": p.get("title", p.get("current_title", "")),
+                "name": bp.get("name", "Hiring Manager"),
+                "title": bp.get("current_title", bp.get("headline", "")),
                 "company": company_name,
             }
     except Exception as e:

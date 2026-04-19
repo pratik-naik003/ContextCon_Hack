@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 import aiosqlite
@@ -322,6 +323,9 @@ async def search_students(filters: dict[str, Any]) -> list[dict[str, Any]]:
 
         if filters.get("skills"):
             for skill in filters["skills"]:
+                skill = str(skill).strip()[:50]
+                if not re.match(r'^[a-zA-Z0-9\s\+\-\#\.]+$', skill):
+                    continue
                 query += " AND s.skills_json LIKE ?"
                 params.append(f"%{skill}%")
         if filters.get("year"):
@@ -332,7 +336,7 @@ async def search_students(filters: dict[str, Any]) -> list[dict[str, Any]]:
             params.append(f"%{filters['college']}%")
 
         query += " ORDER BY s.created_at DESC"
-        limit = filters.get("limit", 10)
+        limit = min(max(int(filters.get("limit", 10)), 1), 50)
         query += " LIMIT ?"
         params.append(limit)
 

@@ -29,24 +29,32 @@ async def watcher_loop(bot: Bot) -> None:
             for student_id, (student, companies) in rows.items():
                 for comp in companies:
                     companies_checked += 1
+                    company_id = comp.get("company_id", "")
+                    company_name = comp.get("company_name", "")
                     try:
-                        jobs = await cd.job_listings(comp["company_id"])
-                        results = jobs.get("results", jobs.get("job_listings", []))
-                        for job in results[:5]:
-                            job_id = job.get("id", job.get("job_id", ""))
-                            sig = f"{comp['company_id']}:new_jd:{job_id}"
+                        cid_int = int(company_id) if company_id.isdigit() else None
+                        result = await cd.job_search(
+                            company_id=cid_int,
+                            company_name=company_name if not cid_int else "",
+                            limit=5,
+                        )
+                        job_listings = result.get("job_listings", []) if isinstance(result, dict) else []
+                        for job in job_listings[:5]:
+                            jd = job.get("job_details", {})
+                            job_id = str(jd.get("job_id", job.get("crustdata_job_id", "")))
+                            sig = f"{company_id}:new_jd:{job_id}"
                             if sig in seen:
                                 continue
                             event_id = await insert_event(
-                                comp["company_id"],
-                                comp["company_name"],
+                                company_id,
+                                company_name,
                                 "new_jd",
                                 json.dumps(job),
                             )
                             await dispatch_event(bot, student, comp, job, event_id)
                             new_events += 1
                     except Exception as e:
-                        logger.warning("Job fetch failed for %s: %s", comp.get("company_name"), e)
+                        logger.warning("Job fetch failed for %s: %s", company_name, e)
 
             logger.info(
                 "Watcher poll complete — %d new events, %d companies checked",
