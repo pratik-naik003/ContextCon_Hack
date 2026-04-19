@@ -32,7 +32,7 @@ async def watcher_loop(bot: Bot) -> None:
                     company_id = comp.get("company_id", "")
                     company_name = comp.get("company_name", "")
                     try:
-                        cid_int = int(company_id) if company_id.isdigit() else None
+                        cid_int = int(company_id) if str(company_id).isdigit() else None
                         result = await cd.job_search(
                             company_id=cid_int,
                             company_name=company_name if not cid_int else "",
@@ -41,12 +41,14 @@ async def watcher_loop(bot: Bot) -> None:
                         job_listings = result.get("job_listings", []) if isinstance(result, dict) else []
                         for job in job_listings[:5]:
                             jd = job.get("job_details", {})
-                            job_id = str(jd.get("job_id", job.get("crustdata_job_id", "")))
-                            sig = f"{company_id}:new_jd:{job_id}"
+                            job_url = jd.get("url", "")
+                            if not job_url:
+                                continue
+                            sig = f"{company_name}:new_jd:{job_url}"
                             if sig in seen:
                                 continue
                             event_id = await insert_event(
-                                company_id,
+                                company_id or company_name,
                                 company_name,
                                 "new_jd",
                                 json.dumps(job),

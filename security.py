@@ -36,7 +36,9 @@ api_limiter = RateLimiter(settings.rate_limit_api_calls_per_minute)
 
 
 class SessionStore:
-    """In-memory session state with TTL."""
+    """In-memory session state with TTL and bounded size."""
+
+    MAX_ENTRIES = 10_000
 
     def __init__(self, ttl: int = 3600):
         self._store: dict[int, dict[str, Any]] = {}
@@ -52,12 +54,20 @@ class SessionStore:
         return self._store[key]
 
     def set(self, key: int, value: dict[str, Any]) -> None:
+        if len(self._store) >= self.MAX_ENTRIES:
+            self._evict_expired()
         self._store[key] = value
         self._timestamps[key] = time.monotonic()
 
     def delete(self, key: int) -> None:
         self._store.pop(key, None)
         self._timestamps.pop(key, None)
+
+    def _evict_expired(self) -> None:
+        now = time.monotonic()
+        expired = [k for k, ts in self._timestamps.items() if now - ts > self._ttl]
+        for k in expired:
+            self.delete(k)
 
 
 def audit_log(action: str, user_id: int | None = None, details: str = "") -> None:
@@ -71,4 +81,6 @@ def audit_log(action: str, user_id: int | None = None, details: str = "") -> Non
 
 def sanitize_error(exc: Exception) -> str:
     """Return a user-safe error message. Never expose internals."""
+    if hasattr(exc, "user_message"):
+        return exc.user_message
     return "Something went wrong. Please try again later."

@@ -200,8 +200,9 @@ async def recent_event_signatures(hours: int = 24) -> set[str]:
         sigs = set()
         for row in await cursor.fetchall():
             payload = json.loads(row["payload_json"] or "{}")
-            job_id = payload.get("id", payload.get("job_id", ""))
-            sigs.add(f"{row['company_id']}:{row['event_type']}:{job_id}")
+            jd = payload.get("job_details", {})
+            job_url = jd.get("url", "")
+            sigs.add(f"{row['company_name']}:{row['event_type']}:{job_url}")
         return sigs
     finally:
         await db.close()

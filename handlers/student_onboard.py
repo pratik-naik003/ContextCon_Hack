@@ -6,13 +6,21 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from crustdata import Crustdata
-from db import upsert_student, seed_watched_companies
+from db import upsert_student, seed_watched_companies, get_student_by_tg
 from llm import extract_skills_from_resume
 from security import SessionStore, message_limiter, sanitize_error
 
 logger = logging.getLogger("placemate.onboard")
 
 STATE = SessionStore(ttl=3600)
+
+
+def get_main_menu_inline() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("My Profile", callback_data="onb:menu:profile"),
+         InlineKeyboardButton("Recruiter Mode", callback_data="onb:menu:recruiter")],
+        [InlineKeyboardButton("Help", callback_data="onb:menu:help")],
+    ])
 
 
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -33,6 +41,18 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     tg_id = update.effective_user.id
     st = STATE.get(tg_id)
     if not st:
+        student = await get_student_by_tg(tg_id)
+        if student:
+            await update.message.reply_text(
+                f"Hey {student.get('name', 'there')}! I'm watching companies for you.\n\n"
+                "Use the buttons below, or just ask me anything.",
+                reply_markup=get_main_menu_inline(),
+            )
+        else:
+            await update.message.reply_text(
+                "Hey! I don't think we've met yet. Let's set up your profile so "
+                "I can start watching companies for you.\n\nTap /start to begin.",
+            )
         return
     if not message_limiter.is_allowed(tg_id):
         await update.message.reply_text("Slow down! Try again in a minute.")
@@ -68,7 +88,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
         elif step == "resume":
             await update.message.chat.send_action("typing")
-            skills = await extract_skills_from_resume(text)
+            skills = await extract_skills_from_resume(text, user_id=tg_id)
             data["resume_text"] = text
             data["skills"] = skills
             st["step"] = "roles"
@@ -98,6 +118,36 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     if not st:
         return
 
+    if q.data.startswith("onb:menu:"):
+        action = q.data.split(":")[-1]
+        if action == "profile":
+            student = await get_student_by_tg(tg_id)
+            if student:
+                skills_str = ", ".join(student.get("skills", [])[:8]) or "none yet"
+                await q.message.reply_text(
+                    f"*Your Profile*\n\n"
+                    f"Name: {student.get('name', 'N/A')}\n"
+                    f"College: {student.get('college', 'N/A')}\n"
+                    f"Target role: {student.get('target_roles', 'N/A')}\n"
+                    f"Skills: {skills_str}\n\n"
+                    "To update, just run /start again.",
+                    parse_mode="Markdown",
+                )
+            else:
+                await q.message.reply_text("No profile yet — run /start to set one up.")
+        elif action == "recruiter":
+            await q.message.reply_text("Switching to recruiter mode. Run /recruiter to verify.")
+        elif action == "help":
+            await q.message.reply_text(
+                "*PlaceMate Commands*\n\n"
+                "/start — Set up your profile\n"
+                "/recruiter — Recruiter mode\n"
+                "/find — Search candidates (recruiter)\n"
+                "/help — Show this message",
+                parse_mode="Markdown",
+            )
+        return
+
     if not q.data.startswith("onb:role:"):
         return
 
@@ -109,12 +159,18 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
         cd = Crustdata()
         try:
             result = await cd.company_search(headcount_min=50, headcount_max=1000)
-            companies_list = result.get("companies", []) if isinstance(result, dict) else []
+            companies_raw = []
+            if isinstance(result, dict):
+                companies_raw = result.get("companies", result.get("results", []))
+            elif isinstance(result, list):
+                companies_raw = result
             seed_data = []
-            for c in companies_list[:50]:
-                bi = c.get("basic_info", {})
+            for c in companies_raw[:50]:
+                cd_data = c.get("company_data", c)
+                bi = cd_data.get("basic_info", {})
+                cid = bi.get("crustdata_company_id") or cd_data.get("crustdata_company_id") or ""
                 seed_data.append({
-                    "company_id": str(bi.get("crustdata_company_id", c.get("crustdata_company_id", ""))),
+                    "company_id": str(cid),
                     "company_name": bi.get("name", "Unknown"),
                 })
             await seed_watched_companies(student_id, seed_data)
@@ -122,11 +178,12 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
             await cd.close()
 
         await q.edit_message_text(
-            "Locked in. I'm now watching 300+ companies for you.\n\n"
-            "*I'll only ping you when something actually matters* — a funding round, a hiring surge, "
-            "or a role that matches your skills.\n\n"
-            "Type /demo to see what a live signal looks like.",
+            "You're all set! I'm now watching companies for you.\n\n"
+            "*I'll ping you when something matches your skills* — new roles, "
+            "hiring surges, or funding rounds.\n\n"
+            "Use the menu below to explore, or just wait — I'll come to you.",
             parse_mode="Markdown",
+            reply_markup=get_main_menu_inline(),
         )
         STATE.delete(tg_id)
     except Exception as e:

@@ -7,7 +7,8 @@ from pathlib import Path
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from db import record_quiz_attempt, compute_mastery_score, update_mastery, update_notification_response
+from db import (record_quiz_attempt, compute_mastery_score, update_mastery,
+                update_notification_response, get_student_by_tg, get_latest_event_for_student)
 from security import message_limiter
 
 logger = logging.getLogger("placemate.tutor")
@@ -137,12 +138,15 @@ async def _handle_answer(q, tg_id: int, skill: str, idx: int, picked: int) -> No
         score = await compute_mastery_score(tg_id, skill)
         await update_mastery(tg_id, skill, score)
         if score >= 80:
+            student = await get_student_by_tg(tg_id)
+            event_row = await get_latest_event_for_student(student["id"]) if student else None
+            event_id = event_row["id"] if event_row else 0
             await q.message.reply_text(
                 f"*Mastery unlocked: {skill} — {score}/100*\n\n"
                 "You're ready. Want me to draft your cold email to the hiring manager?",
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("Draft my email", callback_data="apply:go:ready"),
+                    InlineKeyboardButton("Draft my email", callback_data=f"apply:go:{event_id}"),
                 ]]),
             )
         else:

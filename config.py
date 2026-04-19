@@ -17,7 +17,6 @@ class Settings(BaseModel):
     gemini_api_key: str
     database_url: str = "sqlite:///placemate.db"
     watcher_poll_seconds: int = 60
-    demo_mode: bool = False
     log_level: str = "INFO"
     rate_limit_messages_per_minute: int = 20
     rate_limit_api_calls_per_minute: int = 30
@@ -38,7 +37,6 @@ def load_settings() -> Settings:
         gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
         database_url=os.getenv("DATABASE_URL", "sqlite:///placemate.db"),
         watcher_poll_seconds=int(os.getenv("WATCHER_POLL_SECONDS", "60")),
-        demo_mode=os.getenv("DEMO_MODE", "false").lower() == "true",
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         rate_limit_messages_per_minute=int(os.getenv("RATE_LIMIT_MESSAGES_PER_MINUTE", "20")),
         rate_limit_api_calls_per_minute=int(os.getenv("RATE_LIMIT_API_CALLS_PER_MINUTE", "30")),

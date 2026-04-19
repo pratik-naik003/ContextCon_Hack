@@ -4,6 +4,7 @@ import logging
 import re
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import Forbidden
 from telegram.ext import ContextTypes
 
 from crustdata import Crustdata
@@ -125,7 +126,7 @@ async def find(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         await update.message.chat.send_action("typing")
-        parsed = await parse_find_query(query)
+        parsed = await parse_find_query(query, user_id=tg_id)
         matches = await search_students(parsed)
 
         if not matches:
@@ -149,3 +150,61 @@ async def find(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         logger.error("Find error: %s", e)
         await update.message.reply_text(sanitize_error(e))
+
+
+async def handle_rec_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    q = update.callback_query
+    await q.answer()
+    recruiter_tg_id = q.from_user.id
+
+    if not message_limiter.is_allowed(recruiter_tg_id):
+        return
+
+    if not await _is_verified_recruiter(recruiter_tg_id):
+        await q.message.reply_text("You must be a verified recruiter to message students.")
+        return
+
+    parts = q.data.split(":")
+    if len(parts) < 3 or not parts[2].isdigit():
+        return
+    student_db_id = int(parts[2])
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT tg_id, name FROM students WHERE id = ?", (student_db_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            await q.message.reply_text("Student not found.")
+            return
+        student_tg_id = row["tg_id"]
+        student_name = row["name"] or "the student"
+
+        rec_cursor = await db.execute(
+            "SELECT company, title FROM recruiters WHERE tg_id = ?", (recruiter_tg_id,)
+        )
+        rec_row = await rec_cursor.fetchone()
+        company = (rec_row["company"] or "a company") if rec_row else "a company"
+        title = (rec_row["title"] or "a recruiter") if rec_row else "a recruiter"
+    finally:
+        await db.close()
+
+    try:
+        await ctx.bot.send_message(
+            chat_id=student_tg_id,
+            text=(
+                f"A recruiter from *{company}* ({title}) is interested in your profile on PlaceMate.\n\n"
+                "They found you through your verified skills. Reply here to connect."
+            ),
+            parse_mode="Markdown",
+        )
+        await q.message.reply_text(f"Message sent to {student_name}.")
+    except Forbidden:
+        await q.message.reply_text(
+            f"{student_name} has not started PlaceMate yet and cannot be contacted. "
+            "They need to send /start to the bot first."
+        )
+    except Exception as e:
+        logger.error("rec:msg dispatch failed: %s", e)
+        await q.message.reply_text(sanitize_error(e))

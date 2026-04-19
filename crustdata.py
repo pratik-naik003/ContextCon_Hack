@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -38,14 +37,8 @@ class ResponseCache:
 _cache = ResponseCache()
 
 
-def _load_fallback(filename: str) -> dict:
-    path = Path("assets") / filename
-    if path.exists():
-        try:
-            return json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"companies": [], "profiles": [], "job_listings": []}
+class CrustdataUnavailable(Exception):
+    user_message = "Currently server is down. Please try again later."
 
 
 class Crustdata:
@@ -59,15 +52,14 @@ class Crustdata:
             },
         )
 
-    async def _request(self, path: str, payload: dict, cache_key: str,
-                       fallback_file: str = "demo_events.json") -> dict | list:
+    async def _request(self, path: str, payload: dict, cache_key: str) -> dict | list:
         cached = _cache.get(cache_key)
         if cached is not None:
             return cached
 
         if not api_limiter.is_allowed(0):
-            logger.warning("Crustdata rate limit, serving fallback")
-            return _load_fallback(fallback_file)
+            logger.warning("Crustdata rate limit hit")
+            raise CrustdataUnavailable()
 
         retries = 3
         for attempt in range(retries):
@@ -81,11 +73,11 @@ class Crustdata:
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 logger.warning("Crustdata attempt %d failed for %s: %s", attempt + 1, path, e)
                 if attempt == retries - 1:
-                    logger.error("Crustdata exhausted retries for %s, serving fallback", path)
-                    return _load_fallback(fallback_file)
+                    logger.error("Crustdata exhausted retries for %s", path)
+                    raise CrustdataUnavailable()
                 await _backoff(attempt)
 
-        return _load_fallback(fallback_file)
+        raise CrustdataUnavailable()
 
     async def company_search(self, *, headcount_min: int = 50, headcount_max: int = 1000,
                               country: str = "", industry: str = "",
@@ -96,7 +88,7 @@ class Crustdata:
         if headcount_max:
             conditions.append({"field": "headcount.total", "type": "<", "value": headcount_max})
         if country:
-            conditions.append({"field": "locations.country", "type": "=", "value": country})
+            conditions.append({"field": "locations.hq_country", "type": "=", "value": country})
         if industry:
             conditions.append({"field": "basic_info.industries", "type": "contains", "value": industry})
         if funding_type:
@@ -157,7 +149,7 @@ class Crustdata:
         conditions = []
         if company_id:
             conditions.append({
-                "field": "company.basic_info.company_id",
+                "field": "company.basic_info.crustdata_company_id",
                 "type": "=",
                 "value": company_id,
             })
@@ -190,8 +182,9 @@ class Crustdata:
         payload = {
             "filters": filters,
             "fields": [
+                "crustdata_job_id",
                 "job_details.title", "job_details.url", "job_details.category",
-                "company.basic_info.name", "company.basic_info.company_id",
+                "company.basic_info.name", "company.basic_info.crustdata_company_id",
                 "company.basic_info.primary_domain",
                 "location.raw", "location.country",
                 "metadata.date_added",

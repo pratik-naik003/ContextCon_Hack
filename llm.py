@@ -50,14 +50,14 @@ def _sanitize_for_prompt(text: str) -> str:
     return text
 
 
-async def _generate(prompt: str, cache_key: str | None = None) -> str:
+async def _generate(prompt: str, cache_key: str | None = None, user_id: int = 0) -> str:
     if cache_key:
         cached = _cached(cache_key)
         if cached:
             return cached
 
-    if not api_limiter.is_allowed(0):
-        logger.warning("LLM rate limit hit, returning cached or fallback")
+    if not api_limiter.is_allowed(user_id):
+        logger.warning("LLM rate limit hit for user %d", user_id)
         if cache_key:
             cached = _cached(cache_key)
             if cached:
@@ -111,7 +111,7 @@ async def _generate(prompt: str, cache_key: str | None = None) -> str:
         return ""
 
 
-async def extract_skills_from_resume(resume_text: str) -> list[str]:
+async def extract_skills_from_resume(resume_text: str, user_id: int = 0) -> list[str]:
     safe_text = _sanitize_for_prompt(resume_text)
     prompt = (
         "Extract technical and professional skills from the resume text below.\n"
@@ -123,7 +123,7 @@ async def extract_skills_from_resume(resume_text: str) -> list[str]:
     )
 
     cache_key = f"skills:{hash(resume_text[:500])}"
-    result = await _generate(prompt, cache_key)
+    result = await _generate(prompt, cache_key, user_id=user_id)
     try:
         cleaned = result.strip()
         if cleaned.startswith("```"):
@@ -166,7 +166,7 @@ async def compose_signal_message(student: dict, company: dict, job: dict) -> str
     )
 
     cache_key = f"signal:{student.get('tg_id')}:{company.get('company_id')}:{job.get('id', '')}"
-    result = await _generate(prompt, cache_key)
+    result = await _generate(prompt, cache_key, user_id=student.get("tg_id", 0))
     return result or f"🚨 **New role at {c_name or 'a company'}**\n\nThis matches your profile. Tap below to learn more."
 
 
@@ -195,11 +195,11 @@ async def draft_cold_email(student: dict, event: dict, hm: dict) -> str:
     )
 
     cache_key = f"email:{student.get('tg_id')}:{event.get('id', '')}"
-    result = await _generate(prompt, cache_key)
+    result = await _generate(prompt, cache_key, user_id=student.get("tg_id", 0))
     return result or "Hi, I noticed your team is hiring and I'd love to chat about how my skills align. Could we do a quick 15-min call?"
 
 
-async def parse_find_query(query: str) -> dict[str, Any]:
+async def parse_find_query(query: str, user_id: int = 0) -> dict[str, Any]:
     safe_query = _sanitize_for_prompt(query[:500])
     prompt = (
         "Parse this recruiter search query into structured filters.\n"
@@ -209,7 +209,7 @@ async def parse_find_query(query: str) -> dict[str, Any]:
     )
 
     cache_key = f"parse:{hash(query)}"
-    result = await _generate(prompt, cache_key)
+    result = await _generate(prompt, cache_key, user_id=user_id)
     try:
         cleaned = result.strip()
         if cleaned.startswith("```"):
