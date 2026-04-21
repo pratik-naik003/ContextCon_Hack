@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">PlaceMate</h1>
-  <p align="center"><strong>Real-time hiring intelligence for college students — delivered on Telegram.</strong></p>
+  <p align="center"><strong>Hire and get hired — without leaving your chat.</strong></p>
   <p align="center"><em>YC Hackathon 2026 — Crustdata Track</em></p>
 </p>
 
@@ -17,6 +17,20 @@
 <p align="center">
   <code>Status: Active Development</code>
 </p>
+
+---
+
+## What is PlaceMate?
+
+Most hiring tools ask you to download an app nobody uses.
+
+We built PlaceMate — a placement officer that lives inside Telegram, the app students and recruiters already have open.
+
+**Students** paste their resume once. PlaceMate watches 300+ companies in real time, and the moment a matching role opens it doesn't just notify you — it teaches you exactly what the job needs through a 3-minute micro-lesson, quizzes you to prove it, then hands you a personalized cold email drafted for that specific hiring manager. No app. No onboarding. No friction.
+
+**Recruiters** get the same zero-friction experience. Type `/find React engineers at Razorpay` into Telegram and get back real verified profiles in seconds — pulled live from a 3.3M+ person index.
+
+> **The insight:** The best product is the one that meets people where they already are. We didn't build another job board. We built the placement officer that lives in your pocket, in the app you're already using, ready the moment opportunity shows up.
 
 ---
 
